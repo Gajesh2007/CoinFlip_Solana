@@ -56,7 +56,7 @@ pub mod coin_flip {
                         },
                         pool_signer,
                     );
-                    token::transfer(cpi_ctx, amount)?;
+                    token::transfer(cpi_ctx, ctx.accounts.token_vault.amount)?;
                 }
             } else {
                 // Transfer tokens from the vault to user vault.
