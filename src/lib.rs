@@ -17,7 +17,7 @@ pub mod coin_flip {
         Ok(())
     }
 
-    pub fn flip(ctx: Context<Flip>, amount: u64) -> ProgramResult {
+    pub fn betTail(ctx: Context<Flip>, amount: u64) -> ProgramResult {
         if amount == 0 {
             return Err(ErrorCode::AmountMustBeGreaterThanZero.into());
         }
@@ -39,6 +39,74 @@ pub mod coin_flip {
         }
 
         if (c.unix_timestamp % 2) == 0 {
+            if ctx.accounts.token_vault.amount < ((amount * (coin_flip.win_returns as u64))/100) {
+                msg!("Congratulations, You won! Sry, we didn't have enough reward to gib you. So, we'll gib you all the remaining reward in the vault");
+
+                // Transfer tokens from the vault to user vault.
+                {
+                    let seeds = &[coin_flip.to_account_info().key.as_ref(), &[coin_flip.nonce]];
+                    let pool_signer = &[&seeds[..]];
+
+                    let cpi_ctx = CpiContext::new_with_signer(
+                        ctx.accounts.token_program.to_account_info(),
+                        token::Transfer {
+                            from: ctx.accounts.token_vault.to_account_info(),
+                            to: ctx.accounts.stake_from_account.to_account_info(),
+                            authority: ctx.accounts.pool_signer.to_account_info(),
+                        },
+                        pool_signer,
+                    );
+                    token::transfer(cpi_ctx, ctx.accounts.token_vault.amount)?;
+                }
+            } else {
+                // Transfer tokens from the vault to user vault.
+                {
+                    let seeds = &[coin_flip.to_account_info().key.as_ref(), &[coin_flip.nonce]];
+                    let pool_signer = &[&seeds[..]];
+
+                    let cpi_ctx = CpiContext::new_with_signer(
+                        ctx.accounts.token_program.to_account_info(),
+                        token::Transfer {
+                            from: ctx.accounts.token_vault.to_account_info(),
+                            to: ctx.accounts.stake_from_account.to_account_info(),
+                            authority: ctx.accounts.pool_signer.to_account_info(),
+                        },
+                        pool_signer,
+                    );
+                    token::transfer(cpi_ctx, amount * (100 + coin_flip.win_returns as u64)/100)?;
+                }
+
+                msg!("Congratulations, You won!");
+            }
+        } else {
+            msg!("Sorry, You lost!");
+        }
+
+        Ok(())
+    }
+
+    pub fn betHead(ctx: Context<Flip>, amount: u64) -> ProgramResult {
+        if amount == 0 {
+            return Err(ErrorCode::AmountMustBeGreaterThanZero.into());
+        }
+
+        let coin_flip = &mut ctx.accounts.coin_flip;
+        let c = clock::Clock::get().unwrap();
+
+        // Transfer tokens into the token vault.
+        {
+            let cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.stake_from_account.to_account_info(),
+                    to: ctx.accounts.token_vault.to_account_info(),
+                    authority: ctx.accounts.signer.to_account_info(),
+                },
+            );
+            token::transfer(cpi_ctx, amount)?;
+        }
+
+        if (c.unix_timestamp % 2) != 0 {
             if ctx.accounts.token_vault.amount < ((amount * (coin_flip.win_returns as u64))/100) {
                 msg!("Congratulations, You won! Sry, we didn't have enough reward to gib you. So, we'll gib you all the remaining reward in the vault");
 
